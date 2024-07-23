@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 from jax.numpy import float32
 
-from ml import get_mean_normalizer, grad_decend, cost
+import ml
 
 # jax.config.update("jax_enable_x64", True)
 jax.config.update("jax_debug_nans", True)
@@ -14,25 +14,21 @@ x_train_raw = jnp.array(
 )
 y_train = jnp.array([460, 232, 178], dtype=float32)
 
-get_normalizer = get_mean_normalizer
-normalizer = get_normalizer(x_train_raw)
+normalizer = ml.get_mean_normalizer(x_train_raw)
 x_train = normalizer(x_train_raw)
-epoches = 40
 print(x_train)
-w = jnp.zeros(x_train.shape[1])
-b = 0.0
-lr = 0.9
-history = []
-for epoch in range(epoches):
-    w, b, w_grad, b_grad = grad_decend(w, b, lr, x_train, y_train)
-    history.append(cost(w, b, x_train, y_train))
-    # print(f"Epoch w: {epoch} {w} b:{b} w_grad: {w_grad} b_grad: {b_grad}")
-
+w, b, history = ml.gradient_descend_training_loop(
+    x_train,
+    y_train,
+    learning_rate=0.9,
+    epoches=40,
+    cost_function=ml.mean_squared_error,
+    cost_history=True,
+)
 for i in range(x_train_raw.shape[0]):
     x = jnp.array(x_train_raw[i])
     x = normalizer(x)
-    print(f"Predicted: {predict(x, w, b)}, Target: {y_train[i]}")
-
+    print(f"Predicted: {ml.linear_predict(x, w, b)}, Target: {y_train[i]}")
 plt.plot(
     history,
 )
