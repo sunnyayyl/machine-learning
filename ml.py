@@ -3,10 +3,10 @@ from typing import Callable, Optional
 
 import jax.numpy as jnp
 from jax import jit, vmap, grad, jacfwd
-from jaxtyping import Array, Float, jaxtyped
+from jaxtyping import Array, Float, jaxtyped, ArrayLike
 from typeguard import typechecked
 
-Scalar = Float[Array, ""]
+Scalar = Float[ArrayLike, ""]
 
 CostFunction = Callable[
     [
@@ -15,6 +15,10 @@ CostFunction = Callable[
         Float[Array, "data_count feature_size"],
         Array,
     ],
+    Scalar,
+]
+PredictFunction = Callable[
+    [Float[Array, "data_count feature_size"], Float[Array, "feature_size"], Scalar],
     Scalar,
 ]
 # CostFunction = Callable[[Array, Scalar, Array, Array], Scalar]
@@ -81,28 +85,30 @@ def logistic_predict_all(
 
 
 @jaxtyped(typechecker=typechecked)
-@jit
+@partial(jit, static_argnames="predict_function")
 def logistic_cost(
     w: Float[Array, "feature_size"],
     b: Scalar,
     x_train: Float[Array, "data_count feature_size"],
     y_train: Float[Array, "data_count"],
+    predict_function: PredictFunction = logistic_predict_all,
 ) -> Scalar:
-    y_predict = vmap(lambda x: logistic_predict_all(x_train, w, b))(x_train)
+    y_predict = vmap(lambda x: predict_function(x_train, w, b))(x_train)
     return jnp.mean(
         -y_train * jnp.log(y_predict) - (1 - y_train) * jnp.log(1 - y_predict)
     )
 
 
 @jaxtyped(typechecker=typechecked)
-@jit
+@partial(jit, static_argnames="predict_function")
 def mean_squared_error(
     w: Float[Array, "feature_size"],
     b: Scalar,
     x_train: Float[Array, "data_count feature_size"],
     y_train: Float[Array, "data_count"],
+    predict_function: PredictFunction = linear_predict_all,
 ) -> Scalar:
-    y_predict = linear_predict_all(x_train, w, b)
+    y_predict = predict_function(x_train, w, b)
     return jnp.mean((y_train - y_predict) ** 2)
 
 
@@ -132,21 +138,25 @@ def gradient_descend_training_loop(
     learning_rate: float,
     epoches: int,
     cost_function: CostFunction,
+    predict_function: Optional[PredictFunction] = None,
     verbose=False,
     cost_history=False,
 ) -> tuple[Array, Scalar, Optional[list[Scalar]]]:
+
     if w is None:
-        w = jnp.zeros(x_train.shape[1])
+        w = jnp.zeros(x_train.shape[1], dtype=float)
     if b is None:
-        b = 0
+        b = 0.0
+    if predict_function is not None:
+        cost_function = jit(partial(cost_function, predict_function=predict_function))
     history = []
     for epoch in range(epoches):
         w, b, w_grad, b_grad = grad_descend(
             w,
-            jnp.array(b, dtype=float),
+            b,
             x_train,
             y_train,
-            jnp.array(learning_rate, dtype=float),
+            learning_rate,
             cost_function,
         )
         if verbose:

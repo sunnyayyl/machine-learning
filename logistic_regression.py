@@ -10,8 +10,8 @@ y_train = jnp.array([0, 0, 0, 1, 1, 1], dtype=jnp.float32)  # .reshape(-1, 1)
 
 x_train = x_raw
 """normalizer = ml.get_z_score_normalizer(x_raw)
-x_train = normalizer(x_raw)
-"""
+x_train = normalizer(x_raw)"""
+
 w, b, history = ml.gradient_descend_training_loop(
     x_train,
     y_train,
@@ -20,6 +20,7 @@ w, b, history = ml.gradient_descend_training_loop(
     verbose=True,
     cost_function=ml.logistic_cost,
     cost_history=True,
+    predict_function=ml.logistic_predict_all,
 )
 print(f"w: {w} b: {b}")
 plt.plot(
@@ -38,6 +39,5 @@ plt.xlabel("x")
 plt.ylabel("y")
 plt.show()
 for i in range(x_raw.shape[0]):
-    """x = jnp.array(x_raw[i])
-    x = normalizer(x)"""
+    x = jnp.array(x_raw[i])
     print(f"Predicted: {ml.logistic_predict(x, w, b)}, Target: {y_train[i]}")
