@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable, Optional
+from typing import Optional, Iterable, Protocol
 
 import jax.numpy as jnp
 from jax import jit, vmap, grad, jacfwd
@@ -8,38 +8,87 @@ from typeguard import typechecked
 
 Scalar = Float[ArrayLike, ""]
 
-CostFunction = Callable[
-    [
-        Float[Array, "feature_size"],
-        Scalar,
-        Float[Array, "data_count feature_size"],
-        Array,
-    ],
-    Scalar,
-]
-PredictFunction = Callable[
-    [Float[Array, "data_count feature_size"], Float[Array, "feature_size"], Scalar],
-    Scalar,
-]
-# CostFunction = Callable[[Array, Scalar, Array, Array], Scalar]
+
+class PredictFunction(Protocol):
+    def __call__(
+        self,
+        x: Float[Array, "data_count feature_size"],
+        w: Float[Array, "feature_size"],
+        b: Scalar,
+    ) -> Float[Array, "data_count"]: ...
+
+
+class NormalizerFunction(Protocol):
+    def __call__(
+        self, n: Float[Array, "..."], argnums: Optional[Iterable[int]] = None
+    ) -> Float[Array, "..."]: ...
+
+
+class CostFunction(Protocol):
+    def __call__(
+        self,
+        w: Float[Array, "feature_size"],
+        b: Scalar,
+        x_train: Float[Array, "data_count feature_size"],
+        y_train: Float[Array, "data_count"],
+        predict_function: PredictFunction,
+    ) -> Scalar: ...
+
+
+@jaxtyped(typechecker=typechecked)
+@jit
+def __denormalized(
+    normalized_x: Float[Array, "..."],
+    argnums: Optional[Iterable[int]] = None,
+    *,
+    x_train_mean,
+    divisor,
+) -> Float[Array, "..."]:
+    if argnums is not None:
+        argnums = jnp.array(argnums)
+        divisor = jnp.take(divisor, argnums, axis=0)
+        x_train_mean = jnp.take(x_train_mean, argnums, axis=0)
+    return normalized_x * divisor + x_train_mean
+
+
+@jaxtyped(typechecker=typechecked)
+@jit
+def __normalizer(
+    x: Float[Array, "..."],
+    argnums: Optional[Iterable[int]] = None,
+    *,
+    x_train_mean,
+    divisor,
+) -> Float[Array, "..."]:
+    if argnums is not None:
+        argnums = jnp.array(argnums)
+        divisor = jnp.take(divisor, argnums, axis=0)
+        x_train_mean = jnp.take(x_train_mean, argnums, axis=0)
+    return (x - x_train_mean) / divisor
 
 
 @jaxtyped(typechecker=typechecked)
 def get_z_score_normalizer(
     training_data: Float[Array, "data_count feature_size"]
-) -> Callable[[Float[Array, "input_shape"]], Float[Array, "input_shape"]]:
+) -> tuple[NormalizerFunction, NormalizerFunction]:
     x_train_mean = jnp.mean(training_data, axis=0)
     x_train_std = jnp.std(training_data, axis=0)
-    return jit(lambda x: (x - x_train_mean) / x_train_std)
+    print(jnp.take(x_train_mean, jnp.array([0, 1]), axis=0))
+
+    return jit(
+        partial(__normalizer, x_train_mean=x_train_mean, divisor=x_train_std)
+    ), jit(partial(__denormalized, x_train_mean=x_train_mean, divisor=x_train_std))
 
 
 @jaxtyped(typechecker=typechecked)
 def get_mean_normalizer(
     training_data: Float[Array, "..."]
-) -> Callable[[Float[Array, "input_shape"]], Float[Array, "input_shape"]]:
+) -> tuple[NormalizerFunction, NormalizerFunction]:
     x_train_mean = jnp.mean(training_data, axis=0)
     difference = jnp.max(training_data, axis=0) - jnp.min(training_data, axis=0)
-    return jit(lambda x: (x - x_train_mean) / difference)
+    return jit(
+        partial(__normalizer, x_train_mean=x_train_mean, divisor=difference)
+    ), jit(partial(__denormalized, x_train_mean=x_train_mean, divisor=difference))
 
 
 @jaxtyped(typechecker=typechecked)
@@ -142,7 +191,6 @@ def gradient_descend_training_loop(
     verbose=False,
     cost_history=False,
 ) -> tuple[Array, Scalar, Optional[list[Scalar]]]:
-
     if w is None:
         w = jnp.zeros(x_train.shape[1], dtype=float)
     if b is None:
