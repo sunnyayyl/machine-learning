@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Optional, Sequence, Protocol, Callable
+from typing import Optional, Protocol, Callable, Iterable
 
 import jax.numpy as jnp
 from jax import jit, vmap, grad, jacfwd, random
@@ -20,7 +20,7 @@ class PredictFunction(Protocol):
 
 class NormalizerFunction(Protocol):
     def __call__(
-        self, x: Float[ArrayLike, "..."], argnums: Optional[Sequence[int]] = None
+        self, x: Float[ArrayLike, "..."], argnums: Optional[Iterable[int]] = None
     ) -> Float[Array, "..."]: ...
 
 
@@ -40,9 +40,6 @@ class CallbackFunction(Protocol):
         self,
         w: Float[Array, "feature_size"],
         b: FloatScalar,
-        w_grad: Float[Array, "feature_size"],
-        b_grad: FloatScalar,
-        history: Optional[list[float]] = None,
     ): ...
 
 
@@ -50,9 +47,6 @@ class CallbackFunction(Protocol):
 def default_callback(
     w: Float[Array, "feature_size"],
     b: FloatScalar,
-    w_grad: Float[Array, "feature_size"],
-    b_grad: FloatScalar,
-    history: Optional[list[float]] = None,
 ): ...
 
 
@@ -60,7 +54,7 @@ def default_callback(
 @jit
 def __invert_normalizer(
     x: Float[ArrayLike, "..."],
-    argnums: Optional[Sequence[int]] = None,
+    argnums: Optional[Iterable[int]] = None,
     *,
     x_train_mean,
     divisor,
@@ -76,7 +70,7 @@ def __invert_normalizer(
 @jit
 def __normalizer(
     x: Float[ArrayLike, "..."],
-    argnums: Optional[Sequence[int]] = None,
+    argnums: Optional[Iterable[int]] = None,
     *,
     x_train_mean,
     divisor,
@@ -214,34 +208,86 @@ def gradient_descend_training_loop(
     cost_history: bool = False,
     callback: CallbackFunction = default_callback,
 ) -> tuple[Array, FloatScalar, Optional[list[FloatScalar]]]:
-    if w is None:
-        w = jnp.zeros(x_train.shape[1], dtype=float)
-    if b is None:
-        b = 0.0
-    if predict_function is not None:
-        cost_function = jit(partial(cost_function, predict_function=predict_function))
-    history = []
-    for epoch in range(epoches):
-        w, b, w_grad, b_grad = grad_descend(
-            w,
-            b,
-            x_train,
-            y_train,
-            learning_rate,
-            cost_function,
+    gradient_descend = GradientDescentTrainingLoop(
+        x_train,
+        y_train,
+        w=w,
+        b=b,
+        learning_rate=learning_rate,
+        cost_function=cost_function,
+        predict_function=predict_function,
+        verbose=verbose,
+        cost_history=cost_history,
+    )
+    for _ in range(epoches):
+        gradient_descend.next_epoch()
+        callback(gradient_descend.w, gradient_descend.b)
+    return gradient_descend.w, gradient_descend.b, gradient_descend.get_cost_history()
+
+
+class GradientDescentTrainingLoop:
+    def __init__(
+        self,
+        x_train: Array,
+        y_train: Array,
+        *,
+        w: Optional[Array] = None,
+        b: Optional[Float] = None,
+        learning_rate: float,
+        cost_function: CostFunction,
+        predict_function: Optional[PredictFunction] = None,
+        verbose: bool = False,
+        cost_history: bool = False,
+    ):
+        if w is None:
+            w = jnp.zeros(x_train.shape[1], dtype=float)
+        if b is None:
+            b = 0.0
+        self.x_train = x_train
+        self.y_train = y_train
+
+        self.w = w
+
+        self.b = b
+        self.learning_rate = learning_rate
+        self.current_epoches = 0
+        self.cost_function = cost_function
+        self.predict_function = predict_function
+        self.verbose = verbose
+        self.cost_history = cost_history
+        self.history = []
+
+    def next_epoch(self):
+        self.w, self.b, w_grad, b_grad = grad_descend(
+            self.w,
+            self.b,
+            self.x_train,
+            self.y_train,
+            self.learning_rate,
+            self.cost_function,
         )
-        if verbose:
-            print(f"Epoch {epoch} w: {w} b:{b} w_grad: {w_grad} b_grad: {b_grad}")
-        if cost_history:
-            history.append(cost_function(w, b, x_train, y_train))
-        callback(w, b, w_grad, b_grad, history)
-    return w, b, history if len(history) > 0 else None
+        if self.verbose:
+            print(
+                f"Epoch {self.current_epoches} w: {self.w} b:{self.b} w_grad: {w_grad} b_grad: {b_grad}"
+            )
+        if self.cost_history:
+            self.history.append(
+                self.cost_function(self.w, self.b, self.x_train, self.y_train)
+            )
+        self.current_epoches += 1
+
+    def get_cost_history(self) -> Optional[list[FloatScalar]]:
+        if self.cost_history:
+            return self.history
+        else:
+            return None
 
 
+@jaxtyped(typechecker=typechecked)
 @partial(jit, static_argnames=("shape", "y_function"))
 def generate_data(
     key: ArrayLike,
-    shape: Sequence[int],
+    shape: Iterable[int],
     minval: ArrayLike,
     maxval: ArrayLike,
     y_function: Callable[[ArrayLike], ArrayLike],
