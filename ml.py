@@ -208,79 +208,28 @@ def gradient_descend_training_loop(
     cost_history: bool = False,
     callback: CallbackFunction = default_callback,
 ) -> tuple[Array, FloatScalar, Optional[list[FloatScalar]]]:
-    gradient_descend = GradientDescentTrainingLoop(
-        x_train,
-        y_train,
-        w=w,
-        b=b,
-        learning_rate=learning_rate,
-        cost_function=cost_function,
-        predict_function=predict_function,
-        verbose=verbose,
-        cost_history=cost_history,
-    )
-    for _ in range(epoches):
-        gradient_descend.next_epoch()
-        callback(gradient_descend.w, gradient_descend.b)
-    return gradient_descend.w, gradient_descend.b, gradient_descend.get_cost_history()
-
-
-class GradientDescentTrainingLoop:
-    def __init__(
-        self,
-        x_train: Array,
-        y_train: Array,
-        *,
-        w: Optional[Array] = None,
-        b: Optional[Float] = None,
-        learning_rate: float,
-        cost_function: CostFunction,
-        predict_function: Optional[PredictFunction] = None,
-        verbose: bool = False,
-        cost_history: bool = False,
-    ):
-        if w is None:
-            w = jnp.zeros(x_train.shape[1], dtype=float)
-        if b is None:
-            b = 0.0
-        self.x_train = x_train
-        self.y_train = y_train
-
-        self.w = w
-
-        self.b = b
-        self.learning_rate = learning_rate
-        self.current_epoches = 0
-        self.cost_function = cost_function
-        self.predict_function = predict_function
-        self.verbose = verbose
-        self.cost_history = cost_history
-        self.history = []
-
-    def next_epoch(self):
-        self.w, self.b, w_grad, b_grad = grad_descend(
-            self.w,
-            self.b,
-            self.x_train,
-            self.y_train,
-            self.learning_rate,
-            self.cost_function,
+    if w is None:
+        w = jnp.zeros(x_train.shape[1], dtype=float)
+    if b is None:
+        b = 0.0
+    if predict_function is not None:
+        cost_function = jit(partial(cost_function, predict_function=predict_function))
+    history = []
+    for epoch in range(epoches):
+        w, b, w_grad, b_grad = grad_descend(
+            w,
+            b,
+            x_train,
+            y_train,
+            learning_rate,
+            cost_function,
         )
-        if self.verbose:
-            print(
-                f"Epoch {self.current_epoches} w: {self.w} b:{self.b} w_grad: {w_grad} b_grad: {b_grad}"
-            )
-        if self.cost_history:
-            self.history.append(
-                self.cost_function(self.w, self.b, self.x_train, self.y_train)
-            )
-        self.current_epoches += 1
-
-    def get_cost_history(self) -> Optional[list[FloatScalar]]:
-        if self.cost_history:
-            return self.history
-        else:
-            return None
+        if verbose:
+            print(f"Epoch {epoch} w: {w} b:{b} w_grad: {w_grad} b_grad: {b_grad}")
+        if cost_history:
+            history.append(cost_function(w, b, x_train, y_train))
+        callback(w, b, w_grad, b_grad, history)
+    return w, b, history if len(history) > 0 else None
 
 
 @jaxtyped(typechecker=typechecked)
