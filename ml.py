@@ -20,7 +20,7 @@ class PredictFunction(Protocol):
 
 class NormalizerFunction(Protocol):
     def __call__(
-        self, n: Float[Array, "..."], argnums: Optional[Iterable[int]] = None
+        self, n: Float[ArrayLike, "..."], argnums: Optional[Iterable[int]] = None
     ) -> Float[Array, "..."]: ...
 
 
@@ -38,7 +38,7 @@ class CostFunction(Protocol):
 @jaxtyped(typechecker=typechecked)
 @jit
 def __denormalized(
-    normalized_x: Float[Array, "..."],
+    normalized_x: Float[ArrayLike, "..."],
     argnums: Optional[Iterable[int]] = None,
     *,
     x_train_mean,
@@ -54,7 +54,7 @@ def __denormalized(
 @jaxtyped(typechecker=typechecked)
 @jit
 def __normalizer(
-    x: Float[Array, "..."],
+    x: Float[ArrayLike, "..."],
     argnums: Optional[Iterable[int]] = None,
     *,
     x_train_mean,
@@ -73,7 +73,6 @@ def get_z_score_normalizer(
 ) -> tuple[NormalizerFunction, NormalizerFunction]:
     x_train_mean = jnp.mean(training_data, axis=0)
     x_train_std = jnp.std(training_data, axis=0)
-    print(jnp.take(x_train_mean, jnp.array([0, 1]), axis=0))
 
     return jit(
         partial(__normalizer, x_train_mean=x_train_mean, divisor=x_train_std)
