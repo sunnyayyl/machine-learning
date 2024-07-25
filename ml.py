@@ -1,8 +1,8 @@
 from functools import partial
-from typing import Optional, Iterable, Protocol
+from typing import Optional, Sequence, Protocol, Callable
 
 import jax.numpy as jnp
-from jax import jit, vmap, grad, jacfwd
+from jax import jit, vmap, grad, jacfwd, random
 from jaxtyping import Array, Float, jaxtyped, ArrayLike
 from typeguard import typechecked
 
@@ -20,7 +20,7 @@ class PredictFunction(Protocol):
 
 class NormalizerFunction(Protocol):
     def __call__(
-        self, n: Float[ArrayLike, "..."], argnums: Optional[Iterable[int]] = None
+        self, x: Float[ArrayLike, "..."], argnums: Optional[Sequence[int]] = None
     ) -> Float[Array, "..."]: ...
 
 
@@ -37,9 +37,9 @@ class CostFunction(Protocol):
 
 @jaxtyped(typechecker=typechecked)
 @jit
-def __denormalized(
-    normalized_x: Float[ArrayLike, "..."],
-    argnums: Optional[Iterable[int]] = None,
+def __invert_normalizer(
+    x: Float[ArrayLike, "..."],
+    argnums: Optional[Sequence[int]] = None,
     *,
     x_train_mean,
     divisor,
@@ -48,14 +48,14 @@ def __denormalized(
         argnums = jnp.array(argnums)
         divisor = jnp.take(divisor, argnums, axis=0)
         x_train_mean = jnp.take(x_train_mean, argnums, axis=0)
-    return normalized_x * divisor + x_train_mean
+    return x * divisor + x_train_mean
 
 
 @jaxtyped(typechecker=typechecked)
 @jit
 def __normalizer(
     x: Float[ArrayLike, "..."],
-    argnums: Optional[Iterable[int]] = None,
+    argnums: Optional[Sequence[int]] = None,
     *,
     x_train_mean,
     divisor,
@@ -76,7 +76,7 @@ def get_z_score_normalizer(
 
     return jit(
         partial(__normalizer, x_train_mean=x_train_mean, divisor=x_train_std)
-    ), jit(partial(__denormalized, x_train_mean=x_train_mean, divisor=x_train_std))
+    ), jit(partial(__invert_normalizer, x_train_mean=x_train_mean, divisor=x_train_std))
 
 
 @jaxtyped(typechecker=typechecked)
@@ -87,7 +87,7 @@ def get_mean_normalizer(
     difference = jnp.max(training_data, axis=0) - jnp.min(training_data, axis=0)
     return jit(
         partial(__normalizer, x_train_mean=x_train_mean, divisor=difference)
-    ), jit(partial(__denormalized, x_train_mean=x_train_mean, divisor=difference))
+    ), jit(partial(__invert_normalizer, x_train_mean=x_train_mean, divisor=difference))
 
 
 @jaxtyped(typechecker=typechecked)
@@ -211,3 +211,17 @@ def gradient_descend_training_loop(
         if cost_history:
             history.append(cost_function(w, b, x_train, y_train))
     return w, b, history if len(history) > 0 else None
+
+
+@partial(jit, static_argnames=("shape", "y_function"))
+def generate_data(
+    key: ArrayLike,
+    shape: Sequence[int],
+    minval: ArrayLike,
+    maxval: ArrayLike,
+    y_function: Callable[[ArrayLike], ArrayLike],
+) -> tuple[Float[Array, "input_size"], Float[Array, "input_size"]]:
+    _, subkey = random.split(key)
+    x = jnp.sort(random.uniform(key=subkey, shape=shape, minval=minval, maxval=maxval))
+    y = y_function(x)
+    return x, y
