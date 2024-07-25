@@ -207,7 +207,7 @@ def gradient_descend_training_loop(
             cost_function,
         )
         if verbose:
-            print(f"Epoch w: {epoch} {w} b:{b} w_grad: {w_grad} b_grad: {b_grad}")
+            print(f"Epoch {epoch} w: {w} b:{b} w_grad: {w_grad} b_grad: {b_grad}")
         if cost_history:
             history.append(cost_function(w, b, x_train, y_train))
     return w, b, history if len(history) > 0 else None
