@@ -6,7 +6,7 @@ from jax import jit, vmap, grad, jacfwd, random
 from jaxtyping import Array, Float, jaxtyped, ArrayLike
 from typeguard import typechecked
 
-Scalar = Float[ArrayLike, ""]
+FloatScalar = Float[ArrayLike, ""]
 
 
 class PredictFunction(Protocol):
@@ -14,7 +14,7 @@ class PredictFunction(Protocol):
         self,
         x: Float[Array, "data_count feature_size"],
         w: Float[Array, "feature_size"],
-        b: Scalar,
+        b: FloatScalar,
     ) -> Float[Array, "data_count"]: ...
 
 
@@ -28,11 +28,32 @@ class CostFunction(Protocol):
     def __call__(
         self,
         w: Float[Array, "feature_size"],
-        b: Scalar,
+        b: FloatScalar,
         x_train: Float[Array, "data_count feature_size"],
         y_train: Float[Array, "data_count"],
         predict_function: PredictFunction,
-    ) -> Scalar: ...
+    ) -> FloatScalar: ...
+
+
+class CallbackFunction(Protocol):
+    def __call__(
+        self,
+        w: Float[Array, "feature_size"],
+        b: FloatScalar,
+        w_grad: Float[Array, "feature_size"],
+        b_grad: FloatScalar,
+        history: Optional[list[float]] = None,
+    ): ...
+
+
+@jaxtyped(typechecker=typechecked)
+def default_callback(
+    w: Float[Array, "feature_size"],
+    b: FloatScalar,
+    w_grad: Float[Array, "feature_size"],
+    b_grad: FloatScalar,
+    history: Optional[list[float]] = None,
+): ...
 
 
 @jaxtyped(typechecker=typechecked)
@@ -93,8 +114,8 @@ def get_mean_normalizer(
 @jaxtyped(typechecker=typechecked)
 @jit
 def linear_predict(
-    x: Float[Array, "feature_size"], w: Float[Array, "feature_size"], b: Scalar
-) -> Scalar:
+    x: Float[Array, "feature_size"], w: Float[Array, "feature_size"], b: FloatScalar
+) -> FloatScalar:
     return jnp.dot(w, x) + b
 
 
@@ -103,22 +124,22 @@ def linear_predict(
 def linear_predict_all(
     x: Float[Array, "data_count feature_size"],
     w: Float[Array, "feature_size"],
-    b: Scalar,
+    b: FloatScalar,
 ) -> Float[Array, "data_count"]:
     return vmap(lambda x: linear_predict(x, w, b))(x)
 
 
 @jaxtyped(typechecker=typechecked)
 @jit
-def sigmoid(x: Scalar) -> Scalar:
+def sigmoid(x: FloatScalar) -> FloatScalar:
     return 1 / (1 + jnp.exp(-x))
 
 
 @jaxtyped(typechecker=typechecked)
 @jit
 def logistic_predict(
-    x: Float[Array, "feature_size"], w: Float[Array, "feature_size"], b: Scalar
-) -> Scalar:
+    x: Float[Array, "feature_size"], w: Float[Array, "feature_size"], b: FloatScalar
+) -> FloatScalar:
     return sigmoid(linear_predict(x, w, b))
 
 
@@ -127,7 +148,7 @@ def logistic_predict(
 def logistic_predict_all(
     x: Float[Array, "data_count feature_size"],
     w: Float[Array, "feature_size"],
-    b: Scalar,
+    b: FloatScalar,
 ) -> Float[Array, "data_count"]:
     return vmap(lambda x: logistic_predict(x, w, b))(x)
 
@@ -136,11 +157,11 @@ def logistic_predict_all(
 @partial(jit, static_argnames="predict_function")
 def logistic_cost(
     w: Float[Array, "feature_size"],
-    b: Scalar,
+    b: FloatScalar,
     x_train: Float[Array, "data_count feature_size"],
     y_train: Float[Array, "data_count"],
     predict_function: PredictFunction = logistic_predict_all,
-) -> Scalar:
+) -> FloatScalar:
     y_predict = vmap(lambda x: predict_function(x_train, w, b))(x_train)
     return jnp.mean(
         -y_train * jnp.log(y_predict) - (1 - y_train) * jnp.log(1 - y_predict)
@@ -151,11 +172,11 @@ def logistic_cost(
 @partial(jit, static_argnames="predict_function")
 def mean_squared_error(
     w: Float[Array, "feature_size"],
-    b: Scalar,
+    b: FloatScalar,
     x_train: Float[Array, "data_count feature_size"],
     y_train: Float[Array, "data_count"],
     predict_function: PredictFunction = linear_predict_all,
-) -> Scalar:
+) -> FloatScalar:
     y_predict = predict_function(x_train, w, b)
     return jnp.mean((y_train - y_predict) ** 2)
 
@@ -164,12 +185,14 @@ def mean_squared_error(
 @partial(jit, static_argnames="cost_function")
 def grad_descend(
     w: Float[Array, "feature_size"],
-    b: Scalar,
+    b: FloatScalar,
     x_train: Float[Array, "data_count feature_size"],
     y_train: Float[Array, "data_count"],
-    learning_rate: Scalar,
+    learning_rate: FloatScalar,
     cost_function: CostFunction,
-) -> tuple[Float[Array, "feature_size"], Scalar, Float[Array, "feature_size"], Scalar]:
+) -> tuple[
+    Float[Array, "feature_size"], FloatScalar, Float[Array, "feature_size"], FloatScalar
+]:
     w_grad = jacfwd(lambda w: cost_function(w, b, x_train, y_train))(w)
     b_grad = grad(cost_function, argnums=1)(w, b, x_train, y_train)
     temp_w = w - learning_rate * w_grad
@@ -187,9 +210,10 @@ def gradient_descend_training_loop(
     epoches: int,
     cost_function: CostFunction,
     predict_function: Optional[PredictFunction] = None,
-    verbose=False,
-    cost_history=False,
-) -> tuple[Array, Scalar, Optional[list[Scalar]]]:
+    verbose: bool = False,
+    cost_history: bool = False,
+    callback: CallbackFunction = default_callback,
+) -> tuple[Array, FloatScalar, Optional[list[FloatScalar]]]:
     if w is None:
         w = jnp.zeros(x_train.shape[1], dtype=float)
     if b is None:
@@ -210,6 +234,7 @@ def gradient_descend_training_loop(
             print(f"Epoch {epoch} w: {w} b:{b} w_grad: {w_grad} b_grad: {b_grad}")
         if cost_history:
             history.append(cost_function(w, b, x_train, y_train))
+        callback(w, b, w_grad, b_grad, history)
     return w, b, history if len(history) > 0 else None
 
 
