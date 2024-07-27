@@ -1,5 +1,6 @@
 from functools import partial
-from typing import Optional, Protocol, Callable, Iterable
+from optparse import Option
+from typing import Optional, Protocol, Callable, Iterable, TypedDict
 
 import jax.numpy as jnp
 from jax import jit, vmap, grad, jacfwd, random
@@ -9,6 +10,10 @@ from typeguard import typechecked
 FloatScalar = Float[ArrayLike, ""]
 
 
+class History(TypedDict):
+    cost: Optional[list[FloatScalar]]
+    w: Optional[list[Float[Array, "feature_size"]]]
+    b: Optional[list[FloatScalar]]
 class PredictFunction(Protocol):
     def __call__(
         self,
@@ -205,16 +210,19 @@ def gradient_descend_training_loop(
     cost_function: CostFunction,
     predict_function: Optional[PredictFunction] = None,
     verbose: bool = False,
-    cost_history: bool = False,
+    keep_cost_history: bool = False,
+    keep_parameter_history: bool = False,
     callback: CallbackFunction = default_callback,
-) -> tuple[Array, FloatScalar, Optional[list[FloatScalar]]]:
+) -> tuple[Array, FloatScalar, History]:
     if w is None:
         w = jnp.zeros(x_train.shape[1], dtype=float)
     if b is None:
         b = 0.0
     if predict_function is not None:
         cost_function = jit(partial(cost_function, predict_function=predict_function))
-    history = []
+    cost_history=[] if keep_cost_history else None
+    w_history=[] if keep_parameter_history else None
+    b_history=[] if keep_parameter_history else None
     for epoch in range(epoches):
         w, b, w_grad, b_grad = grad_descend(
             w,
@@ -226,10 +234,15 @@ def gradient_descend_training_loop(
         )
         if verbose:
             print(f"Epoch {epoch} w: {w} b:{b} w_grad: {w_grad} b_grad: {b_grad}")
-        if cost_history:
-            history.append(cost_function(w, b, x_train, y_train))
-        callback(w, b, w_grad, b_grad, history)
-    return w, b, history if len(history) > 0 else None
+        if keep_cost_history:
+            cost_history.append(cost_function(w, b, x_train, y_train))
+        if keep_parameter_history:
+            w_history.append(w)
+            b_history.append(b)
+
+
+        callback(w, b, w_grad, b_grad, cost_history)
+    return w, b, History(cost=cost_history,w=w_history,b=b_history)
 
 
 @jaxtyped(typechecker=typechecked)
