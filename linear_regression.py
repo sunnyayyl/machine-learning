@@ -15,8 +15,8 @@ import ml
 def animate_gradient_decent(
     w: Float[Array, "feature_size"],
     b: ml.FloatScalar,
-    artists=list,
-    ax=plt.axis,
+    artists:list,
+    ax:plt.axis,
 ):
     x = jnp.arange(0, 500, dtype=jnp.float32).reshape(-1, 1)
     y = ml.linear_predict_all(normalizer(x), w, b)
@@ -40,7 +40,7 @@ w, b, history = ml.gradient_descend_training_loop(
     x_train,
     y_train,
     cost_function=ml.mean_squared_error,
-    cost_history=True,
+    keep_cost_history=True,
     verbose=True,
     learning_rate=0.1,
     epoches=50,
@@ -50,11 +50,16 @@ ani = animation.ArtistAnimation(fig=fig, artists=artists, interval=300)
 ani.save("linear_regression.mp4")
 plt.show()
 
-for i in range(x_raw.shape[0]):
-    x = normalizer(x_raw[i])
-    print(f"Predicted: {ml.linear_predict(x, w, b)}, Target: {y_train[i]}")
+ml.compare_predictions(
+    x_train,
+    y_train,
+    w,
+    b,
+    predict_function=ml.linear_predict
+)
+
 plt.plot(
-    history,
+    history["cost"],
 )
 plt.ylabel("Cost")
 plt.xlabel("Epoch")

@@ -14,7 +14,7 @@ x_train_raw = jnp.array(
 )
 y_train = jnp.array([460, 232, 178], dtype=float32)
 
-normalizer = ml.get_mean_normalizer(x_train_raw)
+normalizer,inverse_normalizer = ml.get_mean_normalizer(x_train_raw)
 x_train = normalizer(x_train_raw)
 print(x_train)
 w, b, history = ml.gradient_descend_training_loop(
@@ -23,14 +23,18 @@ w, b, history = ml.gradient_descend_training_loop(
     learning_rate=0.9,
     epoches=40,
     cost_function=ml.mean_squared_error,
-    cost_history=True,
+    keep_cost_history=True,
 )
-for i in range(x_train_raw.shape[0]):
-    x = jnp.array(x_train_raw[i])
-    x = normalizer(x)
-    print(f"Predicted: {ml.linear_predict(x, w, b)}, Target: {y_train[i]}")
+ml.compare_predictions(
+    x_train,
+    y_train,
+    w,
+    b,
+    predict_function=ml.linear_predict
+)
+
 plt.plot(
-    history,
+    history["cost"]
 )
 plt.ylabel("Cost")
 plt.xlabel("Epoch")
