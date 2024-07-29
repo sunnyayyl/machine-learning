@@ -18,7 +18,7 @@ matplotlib.use("TkAgg")
 
 @jit
 def mod_feature(x: Array) -> Array:
-    return jnp.c_[x, x**2, x**3]
+    return jnp.c_[x, x**2, x**3, x**4, x**5, x**6, x**7, x**8, x**9, x**10]
 
 
 @partial(jit, static_argnames="normalizer")
@@ -39,7 +39,6 @@ x_raw, y_train = generate_data(
 x_train = mod_feature(x_raw)
 normalizer, invert_normalizer = get_z_score_normalizer(x_train)
 x_train = normalizer(x_train)
-
 w, b, history = gradient_descend_training_loop(
     x_train,
     y_train,
@@ -49,7 +48,7 @@ w, b, history = gradient_descend_training_loop(
     verbose=True,
     keep_cost_history=True,
     keep_parameter_history=True,
-    w=random.uniform(random.split(key)[1], (3,), float, -50000, 0),
+    w=random.uniform(random.split(key)[1], (x_train.shape[1],), float, -50000, 0),
     b=random.uniform(random.split(key)[1], (1,), float, -50000, 0)[0],
 )
 
