@@ -43,11 +43,5 @@ class RegularizationFunction(Protocol):
     def __call__(
         self,
         w: Float[Array, "feature_size"],
-        b: FloatScalar,
-        x_train: Float[Array, "data_count feature_size"],
-        y_train: Float[Array, "data_count"],
-        predict_function: Optional[PredictFunction] = None,
-        *,
-        cost_function: CostFunction,
         lambda_: FloatScalar,
     ) -> FloatScalar: ...

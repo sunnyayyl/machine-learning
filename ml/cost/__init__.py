@@ -7,8 +7,8 @@ from typeguard import typechecked
 
 from ml.definition import FloatScalar
 from ml.definition.functions import PredictFunction
-from ml.regression.linear import linear_predict_all
-from ml.regression.logistic import logistic_predict_all
+from ml.regression.linear import linear_predict_batch
+from ml.regression.logistic import logistic_predict_batch
 
 
 @jaxtyped(typechecker=typechecked)
@@ -18,7 +18,7 @@ def logistic_cost(
     b: FloatScalar,
     x_train: Float[Array, "data_count feature_size"],
     y_train: Float[Array, "data_count"],
-    predict_function: PredictFunction = logistic_predict_all,
+    predict_function: PredictFunction = logistic_predict_batch,
 ) -> FloatScalar:
     y_predict = vmap(lambda x: predict_function(x_train, w, b))(x_train)
     return jnp.mean(
@@ -33,7 +33,7 @@ def mean_squared_error(
     b: FloatScalar,
     x_train: Float[Array, "data_count feature_size"],
     y_train: Float[Array, "data_count"],
-    predict_function: PredictFunction = linear_predict_all,
+    predict_function: PredictFunction = linear_predict_batch,
 ) -> FloatScalar:
     y_predict = predict_function(x_train, w, b)
     return jnp.mean((y_train - y_predict) ** 2)
