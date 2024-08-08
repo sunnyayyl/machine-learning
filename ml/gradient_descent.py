@@ -8,10 +8,10 @@ from typeguard import typechecked
 
 from ml.definition import FloatScalar, History
 from ml.definition.functions import (
-    PredictFunction,
     CostFunction,
-    RegularizationFunction,
     CallbackFunction,
+    RegularizationFunction,
+    PredictFunction,
 )
 from ml.regularization import no_regularization
 
@@ -33,15 +33,12 @@ def grad_descend(
     learning_rate: FloatScalar,
     cost_function: CostFunction,
     regularization_function: RegularizationFunction = no_regularization,
-    lambda_: FloatScalar = 0.0,
 ) -> tuple[
     Float[Array, "feature_size"], FloatScalar, Float[Array, "feature_size"], FloatScalar
 ]:
     @jit
     def new_function(w, b):
-        return cost_function(w, b, x_train, y_train) + regularization_function(
-            w, lambda_
-        )
+        return cost_function(w, b, x_train, y_train) + regularization_function(w)
 
     w_grad = jacfwd(lambda w: new_function(w, b))(w)
     b_grad = grad(new_function, argnums=1)(w, b)
@@ -87,7 +84,6 @@ def gradient_descend_training_loop(
             learning_rate,
             cost_function,
             regularization_function=regularization_function,
-            lambda_=lambda_,
         )
         if verbose:
             print(f"Epoch {epoch} w: {w} b:{b} w_grad: {w_grad} b_grad: {b_grad}")

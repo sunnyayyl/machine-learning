@@ -5,10 +5,17 @@ from jaxtyping import Float, Array, ArrayLike
 from ml.definition import FloatScalar
 
 
-class PredictFunction(Protocol):
+class PredictBatchFunction(Protocol):
     def __call__(
         self,
         x: Float[Array, "data_count feature_size"],
+        w: Float[Array, "feature_size"],
+        b: FloatScalar,
+    ) -> Float[Array, "data_count"]: ...
+class PredictFunction(Protocol):
+    def __call__(
+        self,
+        x: Float[Array, "feature_size"],
         w: Float[Array, "feature_size"],
         b: FloatScalar,
     ) -> Float[Array, "data_count"]: ...
@@ -43,5 +50,18 @@ class RegularizationFunction(Protocol):
     def __call__(
         self,
         w: Float[Array, "feature_size"],
+    ) -> FloatScalar: ...
+
+
+class NewRegularizationFunction(Protocol):
+    def __call__(
+        self,
         lambda_: FloatScalar,
+    ) -> RegularizationFunction: ...
+
+
+class ActivationFunction(Protocol):
+    def __call__(
+        self,
+        z: FloatScalar,
     ) -> FloatScalar: ...

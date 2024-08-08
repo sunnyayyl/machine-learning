@@ -6,7 +6,7 @@ from jax.numpy import float32
 from ml.cost import mean_squared_error
 from ml.gradient_descent import gradient_descend_training_loop
 from ml.normalizer import get_mean_normalizer
-from ml.regression.linear import linear_predict
+from ml.predict import predict
 from ml.tools import compare_predictions
 
 # jax.config.update("jax_enable_x64", True)
@@ -29,7 +29,7 @@ w, b, history = gradient_descend_training_loop(
     cost_function=mean_squared_error,
     keep_cost_history=True,
 )
-compare_predictions(x_train, y_train, w, b, predict_function=linear_predict)
+compare_predictions(x_train, y_train, w, b, predict_batch_function=predict)
 
 plt.plot(history["cost"])
 plt.ylabel("Cost")

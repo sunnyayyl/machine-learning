@@ -8,11 +8,12 @@ from jax import random, jit
 from jaxtyping import jaxtyped, Float, Array
 from typeguard import typechecked
 
+from ml.activation import linear
 from ml.cost import mean_squared_error
 from ml.definition import FloatScalar
 from ml.gradient_descent import gradient_descend_training_loop
 from ml.normalizer import get_z_score_normalizer
-from ml.regression.linear import linear_predict_batch, linear_predict
+from ml.predict import predict_batch
 from ml.tools import compare_predictions, generate_data
 
 
@@ -24,14 +25,14 @@ def animate_gradient_decent(
     ax: plt.axis,
 ):
     x = jnp.arange(0, 500, dtype=jnp.float32).reshape(-1, 1)
-    y = linear_predict_batch(normalizer(x), w, b)
+    y = predict_batch(normalizer(x), w, b, linear)
     predict_line = ax.plot(x, y, c="black")
     artists.append(predict_line)
 
 
 matplotlib.use("TkAgg")
 key = random.PRNGKey(12345)
-x_raw, y_train = generate_data(key, (50,), 0, 500, jit(lambda x: 3 * x + 20))
+key, x_raw, y_train = generate_data(key, (50,), 0, 500, jit(lambda x: 3 * x + 20))
 x_raw = x_raw.reshape(-1, 1)
 normalizer, invert_normalizer = get_z_score_normalizer(x_raw)
 x_train = normalizer(x_raw)
@@ -55,7 +56,7 @@ ani = animation.ArtistAnimation(fig=fig, artists=artists, interval=300)
 ani.save("video/linear_regression.mp4")
 plt.show()
 
-compare_predictions(x_train, y_train, w, b, predict_function=linear_predict)
+compare_predictions(x_train, y_train, w, b, predict_batch_function=predict_batch)
 
 plt.plot(
     history["cost"],
