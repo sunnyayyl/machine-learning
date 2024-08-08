@@ -61,7 +61,7 @@ def animation(frame):
 
 
 ani = FuncAnimation(fig, animation, frames=epoches, interval=10000 / epoches, blit=True)
-ani.save("video/logistic_regression_3d.mp4", dpi=300)
+ani.save("video/logistic_regression_3d.mp4")
 plt.show()
 
 plt.plot(
