@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from jax import jit, random, Array, vmap
 from matplotlib.animation import ArtistAnimation
 
-from ml.cost import mean_squared_error
+from ml.cost import regression_mean_squared_error
 from ml.gradient_descent import gradient_descend_training_loop
 from ml.normalizer import get_z_score_normalizer
 from ml.predict import predict_batch
@@ -51,7 +51,7 @@ w, b, history = gradient_descend_training_loop(
     y_train,
     learning_rate=0.1,
     epoches=600,
-    cost_function=mean_squared_error,
+    cost_function=regression_mean_squared_error,
     verbose=True,
     keep_cost_history=True,
     keep_parameter_history=True,

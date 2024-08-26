@@ -9,7 +9,7 @@ from jaxtyping import jaxtyped, Float, Array
 from typeguard import typechecked
 
 from ml.activation import linear
-from ml.cost import mean_squared_error
+from ml.cost import regression_mean_squared_error
 from ml.definition import FloatScalar
 from ml.gradient_descent import gradient_descend_training_loop
 from ml.normalizer import get_z_score_normalizer
@@ -45,7 +45,7 @@ artists = []
 w, b, history = gradient_descend_training_loop(
     x_train,
     y_train,
-    cost_function=mean_squared_error,
+    cost_function=regression_mean_squared_error,
     keep_cost_history=True,
     verbose=True,
     learning_rate=0.1,

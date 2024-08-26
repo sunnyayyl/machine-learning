@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 from jax.numpy import float32
 
-from ml.cost import mean_squared_error
+from ml.cost import regression_mean_squared_error
 from ml.gradient_descent import gradient_descend_training_loop
 from ml.normalizer import get_mean_normalizer
 from ml.predict import predict
@@ -26,7 +26,7 @@ w, b, history = gradient_descend_training_loop(
     y_train,
     learning_rate=0.9,
     epoches=40,
-    cost_function=mean_squared_error,
+    cost_function=regression_mean_squared_error,
     keep_cost_history=True,
 )
 compare_predictions(x_train, y_train, w, b, predict_batch_function=predict)

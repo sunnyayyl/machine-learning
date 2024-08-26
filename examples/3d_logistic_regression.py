@@ -3,7 +3,7 @@ import jax.random as random
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-from ml.cost import logistic_cost
+from ml.cost import regression_logistic_cost
 from ml.gradient_descent import grad_descend
 from ml.normalizer import get_mean_normalizer
 
@@ -48,9 +48,9 @@ def animation(frame):
         x_train,
         y_train,
         0.19,
-        logistic_cost,
+        regression_logistic_cost,
     )
-    history.append(logistic_cost(w, b, x_train, y_train))
+    history.append(regression_logistic_cost(w, b, x_train, y_train))
     x3 = ((-b) - w[0] * x1 - w[1] * x2) / w[2]
     line.set_data(
         inverse_normalizer(x1, argnums=(0,)).flatten(),

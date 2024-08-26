@@ -13,7 +13,7 @@ from ml.predict import predict
 
 @jaxtyped(typechecker=typechecked)
 @partial(jit, static_argnames="predict_function")
-def logistic_cost(
+def regression_logistic_cost(
     w: Float[Array, "feature_size"],
     b: FloatScalar,
     x_train: Float[Array, "data_count feature_size"],
@@ -21,14 +21,12 @@ def logistic_cost(
     predict_function: PredictFunction = partial(predict, activation_function=sigmoid),
 ) -> FloatScalar:
     y_predict = vmap(partial(predict_function, w=w, b=b))(x_train)
-    return jnp.mean(
-        -y_train * jnp.log(y_predict) - (1 - y_train) * jnp.log(1 - y_predict)
-    )
+    return logistic_cost(y_train, y_predict)
 
 
 @jaxtyped(typechecker=typechecked)
 @partial(jit, static_argnames="predict_function")
-def mean_squared_error(
+def regression_mean_squared_error(
     w: Float[Array, "feature_size"],
     b: FloatScalar,
     x_train: Float[Array, "data_count feature_size"],
@@ -36,4 +34,18 @@ def mean_squared_error(
     predict_function: PredictFunction = predict,
 ) -> FloatScalar:
     y_predict = vmap(partial(predict_function, w=w, b=b))(x_train)
-    return jnp.mean((y_train - y_predict) ** 2)
+    return mean_squared_error(y_train, y_predict)
+
+
+@jaxtyped(typechecker=typechecked)
+@jit
+def logistic_cost(y_train: Array, y_predict: Array) -> FloatScalar:
+    return jnp.mean(
+        -y_train * jnp.log(y_predict) - (1 - y_train) * jnp.log(1 - y_predict)
+    )
+
+
+@jaxtyped(typechecker=typechecked)
+@jit
+def mean_squared_error(y_train: Array, y_predict: Array) -> FloatScalar:
+    return jnp.mean(jnp.pow(y_train - y_predict, 2))

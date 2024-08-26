@@ -9,7 +9,7 @@ from typeguard import typechecked
 
 import ml
 from ml.activation import sigmoid
-from ml.cost import logistic_cost
+from ml.cost import regression_logistic_cost
 from ml.gradient_descent import gradient_descend_training_loop
 from ml.normalizer import get_mean_normalizer
 from ml.predict import predict, predict_batch
@@ -50,7 +50,7 @@ w, b, history = gradient_descend_training_loop(
     epoches=800,
     learning_rate=0.1,
     verbose=True,
-    cost_function=logistic_cost,
+    cost_function=regression_logistic_cost,
     cost_history=True,
     predict_function=predict,
     callback=partial(animate_gradient_decent, artists=artists, ax=ax),
