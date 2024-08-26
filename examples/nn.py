@@ -91,7 +91,7 @@ key, x, y = generate_data(
     (1000,),
     -1.0,
     1.0,
-    lambda x: 3 * x + 1.0,
+    lambda x: x,
 )
 
 inverse_normalizer, normalizer = get_z_score_normalizer(x)
@@ -103,9 +103,10 @@ y = y.reshape(-1, 1)
 print(x)
 print(f"Before: {loss(params, static, x_norm, y_norm)}")
 params, static, history = training_loop(params, static, x_norm, y_norm)
+model = combine(params, static)
 print(f"After: {loss(params, static, x_norm, y_norm)}")
 plt.scatter(x, y)
-plt.plot(x, y_inverse_noramlizer(jax.vmap(model)(x_norm)))
+plt.plot(x, y_inverse_noramlizer(jax.vmap(model)(x_norm)), c="red")
 plt.show()
 
 plt.plot(history)
