@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from functools import partial
 from typing import Optional
 
+import jax
 import jax.numpy as jnp
 from jax import jit
 from jaxtyping import jaxtyped, Float, Array, ArrayLike
@@ -26,7 +27,7 @@ def __invert_normalizer(
     return x * divisor + x_train_mean
 
 
-@jaxtyped(typechecker=typechecked)
+# @jaxtyped(typechecker=typechecked)
 @jit
 def __normalizer(
     x: Float[ArrayLike, "..."],
@@ -42,13 +43,13 @@ def __normalizer(
     return (x - x_train_mean) / divisor
 
 
-@jaxtyped(typechecker=typechecked)
+# @jaxtyped(typechecker=typechecked)
 def get_z_score_normalizer(
     training_data: Float[Array, "data_count feature_size"]
 ) -> tuple[NormalizerFunction, NormalizerFunction]:
     x_train_mean = jnp.mean(training_data, axis=0)
     x_train_std = jnp.std(training_data, axis=0)
-
+    jax.debug.print("{} {}", x_train_mean, x_train_std)
     return jit(
         partial(__normalizer, x_train_mean=x_train_mean, divisor=x_train_std)
     ), jit(partial(__invert_normalizer, x_train_mean=x_train_mean, divisor=x_train_std))
