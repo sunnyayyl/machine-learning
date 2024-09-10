@@ -43,3 +43,9 @@ def compare_predictions(
     for i in range(x_train.shape[0]):
         x = jnp.array(x_train[i])
         print(f"Predicted: {predict_batch_function(x, w, b)}, Target: {y_train[i]}")
+
+
+def sample(l: list, condition: Callable[[any], bool]):
+    for i in l:
+        if condition(i):
+            yield i
