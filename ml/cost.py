@@ -5,7 +5,7 @@ from jax import jit, vmap
 from jaxtyping import jaxtyped, Array, Float
 from typeguard import typechecked
 
-from ml.activation import sigmoid
+from ml.activation import sigmoid, softmax
 from ml.definition import FloatScalar
 from ml.definition.functions import PredictFunction
 from ml.predict import predict
@@ -37,15 +37,18 @@ def regression_mean_squared_error(
     return mean_squared_error(y_train, y_predict)
 
 
-@jaxtyped(typechecker=typechecked)
 @jit
-def logistic_cost(y_train: Array, y_predict: Array) -> FloatScalar:
+def logistic_cost(y_train: Array, y_predict: Array) -> Array:
     return jnp.mean(
         -y_train * jnp.log(y_predict) - (1 - y_train) * jnp.log(1 - y_predict)
     )
 
 
-@jaxtyped(typechecker=typechecked)
 @jit
-def mean_squared_error(y_train: Array, y_predict: Array) -> FloatScalar:
+def mean_squared_error(y_train: Array, y_predict: Array) -> Array:
     return jnp.mean(jnp.pow(y_train - y_predict, 2))
+
+
+@jit
+def softmax_cross_entropy(y_train: Array, y_predict: Array) -> Array:
+    return -jnp.log(jnp.take_along_axis(softmax(y_train), y_predict, -1))
