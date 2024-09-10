@@ -60,15 +60,6 @@ class Flatten(Layer, ABC):
     def __repr__(self) -> str:
         return "Flatten()"
 
-    def tree_flatten(self):
-        return (None,), None
-
-    @classmethod
-    def tree_unflatten(cls, _aux_data, _children):
-        del _aux_data
-        layer = cls.__new__(cls)
-        return layer
-
 
 @jax.tree_util.register_pytree_node_class
 class Dense(Layer, ABC):
