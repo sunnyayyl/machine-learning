@@ -43,6 +43,33 @@ class Layer(ABC):
     def __repr__(self): ...
 
 
+# @jax.tree_util.register_pytree_node_class
+class Flatten(Layer, ABC):
+    @jaxtyped(typechecker=typechecked)
+    def __init__(
+        self,
+    ): ...
+
+    @jaxtyped(typechecker=typechecked)
+    def __call__(self, a_in: Float[Array, "..."]) -> Float[Array, "..."]:
+        if a_in.ndim > 1:
+            return jnp.reshape(a_in[0], -1)
+        else:
+            return jnp.ravel(a_in)
+
+    def __repr__(self) -> str:
+        return "Flatten()"
+
+    def tree_flatten(self):
+        return (None,), None
+
+    @classmethod
+    def tree_unflatten(cls, _aux_data, _children):
+        del _aux_data
+        layer = cls.__new__(cls)
+        return layer
+
+
 @jax.tree_util.register_pytree_node_class
 class Dense(Layer, ABC):
     @jaxtyped(typechecker=typechecked)
@@ -106,7 +133,8 @@ def filter_parameter_bool(obj: PyTree, reverse=False) -> PyTree:
 @jaxtyped(typechecker=typechecked)
 def filter_parameter(obj: PyTree, reverse=False) -> PyTree:
     return jax.tree_util.tree_map(
-        lambda x: x if isinstance(x, jax.Array) != reverse else None, obj
+        lambda x: x if isinstance(x, jax.Array) != reverse else None,
+        obj,
     )
 
 
